@@ -168,7 +168,7 @@ def create_pdf_report(df):
     add_plot_to_pdf(pdf, fig_cum, "Evolución Acumulada", "Crecimiento histórico del volumen de mensajes.")
 
     # 2. LARGO PROMEDIO
-    #avg_len = df.groupby('sender')['msg_len'].mean().sort_values(ascending=True).reset_index()
+    avg_len = df.groupby('sender')['msg_len'].mean().sort_values(ascending=True).reset_index()
     fig_len = px.bar(avg_len, x='msg_len', y='sender', orientation='h', template=plot_template, color='msg_len')
     add_plot_to_pdf(pdf, fig_len, "Largo Promedio", "Quién escribe los mensajes más extensos.")
 
@@ -250,6 +250,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
