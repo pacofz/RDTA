@@ -262,7 +262,7 @@ def create_pdf_report(df):
 # --- UI PRINCIPAL ---
 def main():
     st.markdown('<p class="hero-title">RADIOGRAFÍA DE <br><span class="emerald-text">TU AMISTAD.</span></p>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align:center; color:#a1a1aa; font-size:18px;">Exporta tu chat de WhatsApp y carga el .txt para generar el PDF empresarial detallado.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align:center; color:#a1a1aa; font-size:18px;">Exporta tu chat de WhatsApp y carga el .txt para generar el PDF detallado.</p>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader("", type=["txt"])
     
@@ -290,6 +290,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
