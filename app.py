@@ -186,7 +186,7 @@ def create_pdf_report(df):
     # PORTADA
     pdf.add_page()
     pdf.ln(80)
-    pdf.set_font('helvetica', 'B', 45)
+    pdf.set_font('helvetica', 'B', 65)
     pdf.set_text_color(16, 185, 129)
     pdf.cell(0, 20, 'RADIOGRAFÍA', 0, 1, 'C')
     pdf.set_font('helvetica', 'B', 30)
@@ -290,6 +290,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
