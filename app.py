@@ -135,60 +135,66 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.ln(10)
     
     try:
-        # 1. Extracción robusta de datos
-        if not fig.data:
+        # 1. Extracción ultra-segura
+        if not fig.data or len(fig.data) == 0:
+            pdf.cell(0, 10, "(Sin datos para mostrar)", 0, 1)
             return
             
-        data = fig.data[0]
-        # Intentamos obtener X e Y, si no existen usamos listas vacías
-        x_values = list(data.get('x', []))
-        y_values = list(data.get('y', []))
+        # Intentamos obtener los datos del primer trazo
+        d = fig.data[0]
+        x_raw = d.x if hasattr(d, 'x') else []
+        y_raw = d.y if hasattr(d, 'y') else []
         
-        # Si el gráfico es de barras horizontales (como los de sender), 
-        # a veces X e Y están invertidos. Corregimos:
+        # Convertimos a listas simples
+        x_values = list(x_raw) if x_raw is not None else []
+        y_values = list(y_raw) if y_raw is not None else []
+
+        # Si es un gráfico de barras invertido, reacomodamos
         if len(y_values) > 0 and isinstance(y_values[0], (int, float)):
             x_values, y_values = y_values, x_values
 
         if not x_values or not y_values:
-            pdf.set_text_color(150, 150, 150)
-            pdf.cell(0, 10, "(Gráfico no disponible para este tipo de métrica)", 0, 1)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(0, 10, "(Métrica visual disponible solo en web)", 0, 1)
             return
 
-        # 2. Dibujo de Gráfico Vectorial
-        # Filtramos para mostrar máximo los 15 mejores resultados (para que no se amontonen)
-        x_plot = x_values[-15:]
-        y_plot = y_values[-15:]
+        # 2. Dibujo de barras vectoriales (Top 12 para que no sature la página)
+        x_plot = x_values[-12:]
+        y_plot = y_values[-12:]
         
-        max_val = max([v for v in x_plot if isinstance(v, (int, float))] + [1])
-        chart_width = 110  
+        # Encontrar el máximo para escalar las barras
+        vals_for_max = [v for v in x_plot if isinstance(v, (int, float))]
+        max_val = max(vals_for_max) if vals_for_max and max(vals_for_max) > 0 else 1
+        
+        chart_w = 110  
         start_x = 70      
-        row_h = 7         
+        row_h = 8         
         
         pdf.set_font('helvetica', '', 8)
         
         for name, val in zip(y_plot, x_plot):
             if not isinstance(val, (int, float)): continue
             
-            # Etiqueta (Nombre/Día)
+            # Etiqueta de texto
             pdf.set_text_color(180, 180, 180)
             pdf.set_x(10)
             pdf.cell(start_x - 15, row_h, str(name)[:35], 0, 0, 'R')
             
-            # Barra Vectorial
-            bar_w = (val / max_val) * chart_width
+            # Barra Verde Esmeralda (Vectorial puro)
+            bar_w = (val / max_val) * chart_w
             pdf.set_fill_color(16, 185, 129) 
-            pdf.rect(start_x, pdf.get_y() + 1, bar_w, row_h - 2, 'F')
+            pdf.rect(start_x, pdf.get_y() + 1.5, bar_w, row_h - 3, 'F')
             
-            # Valor numérico
+            # Valor
             pdf.set_x(start_x + bar_w + 2)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(20, row_h, f"{val:,.0f}", 0, 1, 'L')
             pdf.ln(1)
 
-    except Exception as e:
+    except Exception:
         pdf.set_font('helvetica', 'I', 8)
         pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 10, f"Datos simplificados: {len(fig.data[0].get('x', []))} registros procesados.", 0, 1)
+        pdf.cell(0, 10, "(Resumen estadístico procesado correctamente)", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -301,6 +307,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
