@@ -132,12 +132,63 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.set_font('helvetica', '', 10)
     pdf.set_text_color(200, 200, 200)
     pdf.multi_cell(0, 5, description)
-    pdf.ln(5)
+    pdf.ln(10)
     
-    # OPCIÓN SEGURA: Mostramos el gráfico en la web pero no lo metemos al PDF
-    # Esto evita que el servidor se cuelgue intentando 'renderizar' la imagen
-    pdf.set_font('helvetica', 'I', 8)
-    pdf.cell(0, 10, "(Grafico disponible en el panel interactivo de la web)", 0, 1)
+    # --- LA MAGIA: Dibujar la tabla de datos ---
+    try:
+        # 1. Extraer los datos del gráfico (fig.data)
+        if not fig.data:
+            raise Exception("Gráfico sin datos")
+            
+        # Tomamos los datos del primer trazo del gráfico
+        data = fig.data[0]
+        x_data = data['x']
+        y_data = data['y']
+        
+        # 2. Configuración de la tabla
+        pdf.set_font('helvetica', 'B', 10)
+        pdf.set_text_color(255, 255, 255) # Texto blanco para los encabezados
+        pdf.set_fill_color(30, 30, 30)   # Fondo gris oscuro para los encabezados
+        
+        col_width_1 = 100 # Ancho columna 1 (ej: Nombres)
+        col_width_2 = 60  # Ancho columna 2 (ej: Valores)
+        row_height = 8
+        
+        # 3. Dibujar Encabezados (ajustar nombres según el gráfico si se quiere)
+        pdf.cell(col_width_1, row_height, "CONCEPTO", 1, 0, 'C', True)
+        pdf.cell(col_width_2, row_height, "VALOR / CANTIDAD", 1, 1, 'C', True)
+        
+        # 4. Dibujar Filas de Datos
+        pdf.set_font('helvetica', '', 9)
+        pdf.set_text_color(220, 220, 220) # Texto gris claro
+        
+        # Iteramos sobre los datos para llenar la tabla
+        for name, value in zip(y_data, x_data):
+            # Alternar color de fondo ligero para las filas (cebreado)
+            if pdf.page_no() % 2 == 0: pdf.set_fill_color(15, 15, 15)
+            else: pdf.set_fill_color(10, 10, 10)
+            
+            # Limitar el largo del nombre para que no rompa la tabla
+            clean_name = str(name)[:45] 
+            
+            # Formatear el valor (ej: si es decimal, redondear)
+            if isinstance(value, float): clean_value = f"{value:.2f}"
+            elif isinstance(value, int): clean_value = f"{value:,}"
+            else: clean_value = str(value)
+            
+            pdf.cell(col_width_1, row_height, clean_name, 1, 0, 'L', True)
+            pdf.cell(col_width_2, row_height, clean_value, 1, 1, 'R', True)
+            
+            # Salto de página si la tabla es muy larga
+            if pdf.get_y() > 270:
+                pdf.add_page()
+                pdf.ln(20) # Espacio para el header automático
+                # Repetir encabezados si se quiere (opcional)
+                
+    except Exception as e:
+        pdf.set_font('helvetica', 'I', 8)
+        pdf.set_text_color(255, 100, 100)
+        pdf.cell(0, 10, f"Error al generar tabla de datos: {str(e)}", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -250,6 +301,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
