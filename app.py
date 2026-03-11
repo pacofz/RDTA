@@ -8,15 +8,32 @@ import io
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="CHATSTAT PRO", page_icon="📄", layout="centered")
 
-# --- ESTILOS CSS (Estética de la Web) ---
+# --- ESTILOS CSS CORREGIDOS ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #f4f4f5; }
+    
+    /* Titulo XL para la web */
     .hero-title {
-        font-size: 70px; line-height: 0.9; margin-bottom: 20px;
-        text-align: center; font-weight: 900; text-transform: uppercase; font-style: italic;
+        font-size: 100px !important; 
+        line-height: 0.8 !important; 
+        margin-bottom: 30px !important;
+        text-align: center !important; 
+        font-weight: 900 !important; 
+        text-transform: uppercase !important; 
+        font-style: italic !important;
+        letter-spacing: -2px !important;
     }
-    .emerald-text { color: #10b981; font-style: normal; }
+    
+    .emerald-text { 
+        color: #10b981 !important; 
+        font-style: normal !important;
+        display: block;
+        font-size: 60px !important;
+    }
+    
+    /* Ajuste para el cargador de archivos */
+    .stFileUploader { padding-top: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -56,14 +73,12 @@ def parse_chat(file_content):
             prev_timestamp = ts
     return pd.DataFrame(data)
 
-# --- GENERADOR DE PDF HORIZONTAL Y ESTÉTICO ---
+# --- GENERADOR DE PDF HORIZONTAL ---
 class ChatReportPDF(FPDF):
     def __init__(self):
-        # Orientación Landscape (Horizontal)
         super().__init__(orientation='L', unit='mm', format='A4')
         
     def header(self):
-        # Fondo oscuro en todo el reporte
         self.set_fill_color(5, 5, 5)
         self.rect(0, 0, 297, 210, 'F')
         if self.page_no() > 1:
@@ -75,20 +90,17 @@ class ChatReportPDF(FPDF):
         if not labels or not values: return
         self.add_page()
         self.ln(10)
-        # Título estilo Web (Esmeralda e Itálico)
         self.set_font('helvetica', 'BI', 24)
         self.set_text_color(16, 185, 129)
         self.cell(0, 15, title.upper(), 0, 1, 'L')
         
-        # Descripción
         self.set_font('helvetica', '', 11)
         self.set_text_color(180, 180, 180)
         self.multi_cell(0, 6, desc)
         self.ln(15)
 
-        # Configuración de barras para formato horizontal
         max_val = max(values) if max(values) > 0 else 1
-        chart_max_w = 180 # Más ancho por ser horizontal
+        chart_max_w = 180 
         start_x = 80
         row_h = 9
 
@@ -98,12 +110,10 @@ class ChatReportPDF(FPDF):
             self.set_x(10)
             self.cell(start_x - 15, row_h, str(label)[:30], 0, 0, 'R')
             
-            # Dibujo de barra (Instrucción vectorial rápida)
             bar_w = (val / max_val) * chart_max_w
             self.set_fill_color(16, 185, 129)
             self.rect(start_x, self.get_y() + 1, bar_w, row_h - 2, 'F')
             
-            # Valor numérico
             self.set_x(start_x + bar_w + 3)
             self.set_text_color(255, 255, 255)
             self.cell(20, row_h, f"{val:,.0f}", 0, 1, 'L')
@@ -112,16 +122,13 @@ class ChatReportPDF(FPDF):
 def create_pdf_report(df):
     pdf = ChatReportPDF()
     
-    # PORTADA (Estética idéntica a la Web)
+    # PORTADA PDF (Idéntica a la nueva Web)
     pdf.add_page()
     pdf.ln(50)
-    
-    # Texto RADIOGRAFÍA (Doble de grande: 80)
     pdf.set_font('helvetica', 'BI', 80)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 35, 'RADIOGRAFÍA', 0, 1, 'C')
     
-    # Texto DE TU AMISTAD (En Esmeralda)
     pdf.set_font('helvetica', 'B', 45)
     pdf.set_text_color(16, 185, 129)
     pdf.cell(0, 25, 'DE TU AMISTAD.', 0, 1, 'C')
@@ -129,54 +136,39 @@ def create_pdf_report(df):
     pdf.ln(20)
     pdf.set_font('helvetica', '', 14)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 10, f"ANÁLISIS DE DATOS BASADO EN {len(df):,} REGISTROS", 0, 1, 'C')
-    pdf.cell(0, 10, f"GENERADO EL {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'C')
+    pdf.cell(0, 10, f"ESTUDIO BASADO EN {len(df):,} MENSAJES", 0, 1, 'C')
 
-    # --- MÉTRICAS ---
-    # 1. Ranking General
+    # Métricas
     counts = df['sender'].value_counts().reset_index()
-    pdf.draw_vector_chart(counts['sender'].tolist(), counts['count'].tolist(), 
-                         "Ranking de Actividad", "Análisis volumétrico de mensajes por cada integrante del grupo.")
+    pdf.draw_vector_chart(counts['sender'].tolist(), counts['count'].tolist(), "Ranking de Actividad", "Volumen total de mensajes por integrante.")
 
-    # 2. Los Noctámbulos
     noct = df[df['is_noctambulo']]['sender'].value_counts().reset_index()
-    pdf.draw_vector_chart(noct['sender'].tolist(), noct['count'].tolist(), 
-                         "Club de los Noctámbulos", "Frecuencia de mensajes enviados en la franja de 00:00 a 05:59 hs.")
-
-    # 3. Toxicidad (Boludeo)
-    toxic = df[df['is_toxic']]['sender'].value_counts().reset_index()
-    pdf.draw_vector_chart(toxic['sender'].tolist(), toxic['count'].tolist(), 
-                         "Índice de Confianza", "Métrica basada en el uso de términos coloquiales e insultos amistosos detectados.")
-
-    # 4. El Fantasma
-    ghost = df['sender'].value_counts().sort_values(ascending=True).reset_index()
-    pdf.draw_vector_chart(ghost['sender'].tolist(), ghost['count'].tolist(), 
-                         "Ranking del Silencio", "Identificación de los usuarios con menor tasa de respuesta en el periodo.")
+    pdf.draw_vector_chart(noct['sender'].tolist(), noct['count'].tolist(), "Club Noctámbulo", "Actividad entre 00:00 y 05:59 hs.")
 
     return bytes(pdf.output())
 
 # --- INTERFAZ STREAMLIT ---
 def main():
-    st.markdown('<p class="hero-title">RADIOGRAFÍA DE <br><span class="emerald-text">TU AMISTAD.</span></p>', unsafe_allow_html=True)
+    # El título ahora tiene el tamaño XL que pediste
+    st.markdown('<p class="hero-title">RADIOGRAFÍA <br><span class="emerald-text">DE TU AMISTAD.</span></p>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader("", type=["txt"])
     
     if uploaded_file:
         df = parse_chat(uploaded_file.getvalue())
         if not df.empty:
-            st.success(f"Sistema listo. {len(df)} mensajes detectados.")
-            
+            st.success(f"Análisis completo: {len(df)} registros.")
             pdf_bytes = create_pdf_report(df)
-            
             st.download_button(
-                label="⬇️ DESCARGAR REPORTE PDF HORIZONTAL",
+                label="⬇️ DESCARGAR REPORTE FINAL",
                 data=pdf_bytes,
-                file_name=f"ChatStat_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                file_name=f"Radiografia_{datetime.now().strftime('%Y%m%d')}.pdf",
                 mime="application/pdf"
             )
 
 if __name__ == "__main__":
     main()
+
 
 
 
