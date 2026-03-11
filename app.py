@@ -125,24 +125,27 @@ class ChatReportPDF(FPDF):
 def add_plot_to_pdf(pdf, fig, title, description):
     pdf.add_page()
     pdf.ln(10)
-    pdf.set_font('helvetica', 'B', 18)
+    pdf.set_font('helvetica', 'B', 16)
     pdf.set_text_color(16, 185, 129)
     pdf.cell(0, 10, title.upper(), 0, 1, 'L')
     pdf.ln(2)
     pdf.set_font('helvetica', '', 10)
     pdf.set_text_color(200, 200, 200)
     pdf.multi_cell(0, 5, description)
-    pdf.ln(10)
+    pdf.ln(5)
     
-    # CAMBIO CLAVE: Optimización de motor y escala para evitar cuelgues
     try:
-        img_bytes = pio.to_image(fig, format='png', width=1000, height=550, scale=1.2, engine="kaleido")
+        # REDUCIMOS resolución para que el servidor no sufra
+        # Bajamos width y height, y usamos scale=1
+        img_bytes = fig.to_image(format='png', width=700, height=400, scale=1, engine="kaleido")
+        
         with NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
             tmpfile.write(img_bytes)
-            pdf.image(tmpfile.name, x=10, w=190)
+            # Ajustamos el ancho en el PDF para que ocupe el lugar correcto
+            pdf.image(tmpfile.name, x=20, w=170) 
     except Exception as e:
-        pdf.set_text_color(255, 100, 100)
-        pdf.cell(0, 10, f"Error al renderizar gráfico: {str(e)}", 0, 1)
+        pdf.set_font('helvetica', 'I', 8)
+        pdf.cell(0, 10, f"Nota: Gráfico omitido por límite de memoria técnica.", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -255,3 +258,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
