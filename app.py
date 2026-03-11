@@ -181,24 +181,24 @@ def create_pdf_report(df):
     add_plot_to_pdf(pdf, fig_len, "Largo Promedio", "Quién escribe los mensajes más extensos.")
 
     # 3. EL MATAGRUPOS
-    matagrupos = df[df['is_matagrupos']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_mata = px.bar(matagrupos, x='count', y='sender', orientation='h', template=plot_template)
-    add_plot_to_pdf(pdf, fig_mata, "El Matagrupos", "Mensajes que precedieron a silencios de más de 6 horas.")
+    #matagrupos = df[df['is_matagrupos']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
+    #fig_mata = px.bar(matagrupos, x='count', y='sender', orientation='h', template=plot_template)
+    #add_plot_to_pdf(pdf, fig_mata, "El Matagrupos", "Mensajes que precedieron a silencios de más de 6 horas.")
 
     # 4. CLUB DE NOCTAMBULOS
     #noct = df[df['is_noctambulo']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_noct = px.bar(noct, x='count', y='sender', orientation='h', template=plot_template)
-    add_plot_to_pdf(pdf, fig_noct, "Club de Noctámbulos", "Actividad registrada entre las 00:00 y las 06:00 hs.")
+    #fig_noct = px.bar(noct, x='count', y='sender', orientation='h', template=plot_template)
+    #add_plot_to_pdf(pdf, fig_noct, "Club de Noctámbulos", "Actividad registrada entre las 00:00 y las 06:00 hs.")
 
     # 5. EL PREGUNTON
     #preg = df.groupby('sender')['is_question'].mean().mul(100).sort_values(ascending=True).reset_index(name='perc')
-    fig_preg = px.bar(preg, x='perc', y='sender', orientation='h', template=plot_template)
-    add_plot_to_pdf(pdf, fig_preg, "El Preguntón", "Porcentaje de mensajes que son preguntas.")
+    #fig_preg = px.bar(preg, x='perc', y='sender', orientation='h', template=plot_template)
+    #add_plot_to_pdf(pdf, fig_preg, "El Preguntón", "Porcentaje de mensajes que son preguntas.")
 
     # 7. ÍNDICE DE BOLUDEO
     #bolu = df[df['is_boludeo']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_bolu = px.bar(bolu, x='count', y='sender', orientation='h', template=plot_template)
-    add_plot_to_pdf(pdf, fig_bolu, "Índice de Boludeo", "Detección de términos coloquiales e insultos.")
+    #fig_bolu = px.bar(bolu, x='count', y='sender', orientation='h', template=plot_template)
+    #add_plot_to_pdf(pdf, fig_bolu, "Índice de Boludeo", "Detección de términos coloquiales e insultos.")
 
     # 8. ACTIVIDAD SEMANAL
     day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -258,5 +258,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
