@@ -8,12 +8,10 @@ import io
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="CHATSTAT PRO", page_icon="📄", layout="centered")
 
-# --- ESTILOS CSS CORREGIDOS ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #f4f4f5; }
-    
-    /* Titulo XL para la web */
     .hero-title {
         font-size: 100px !important; 
         line-height: 0.8 !important; 
@@ -24,16 +22,12 @@ st.markdown("""
         font-style: italic !important;
         letter-spacing: -2px !important;
     }
-    
     .emerald-text { 
         color: #10b981 !important; 
         font-style: normal !important;
         display: block;
         font-size: 60px !important;
     }
-    
-    /* Ajuste para el cargador de archivos */
-    .stFileUploader { padding-top: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,6 +39,8 @@ def parse_chat(file_content):
     line_regex = r'^\[?(\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}),?\s(\d{1,2}:\d{2}(?::\d{2})?)\s?(?:a\.\s?m\.|p\.\s?m\.|AM|PM|am|pm)?\]?\s?(?:-\s|:\s)?([^:]+):\s(.*)'
     
     prev_timestamp = None
+    prev_sender = None
+    
     for line in lines:
         match = re.match(line_regex, line)
         if match:
@@ -57,23 +53,27 @@ def parse_chat(file_content):
                 ts = datetime.strptime(f"{clean_date} {time_str[:5]}", "%d/%m/%Y %H:%M")
             except: continue
 
-            is_matagrupos = False
-            if prev_timestamp and (ts - prev_timestamp).total_seconds() / 3600 > 6:
-                if len(data) > 0: data[-1]['is_matagrupos'] = True
+            # Lógica de Tiempo de Respuesta
+            response_time = None
+            if prev_timestamp and prev_sender and sender != prev_sender:
+                diff = (ts - prev_timestamp).total_seconds() / 60
+                if diff < 720: # Solo contamos respuestas dentro de las 12hs para no sesgar por noches
+                    response_time = diff
 
             data.append({
                 'timestamp': ts, 
                 'hour': ts.hour,
                 'sender': sender,
                 'message': message, 
-                'is_matagrupos': False,
+                'response_time_min': response_time,
                 'is_noctambulo': 0 <= ts.hour <= 5,
                 'is_toxic': bool(re.search(r'boludo|pelotudo|forro|hdp|mierda|paja', message.lower()))
             })
-            prev_timestamp = ts
+            prev_timestamp, prev_sender = ts, sender
+            
     return pd.DataFrame(data)
 
-# --- GENERADOR DE PDF HORIZONTAL ---
+# --- GENERADOR DE PDF ---
 class ChatReportPDF(FPDF):
     def __init__(self):
         super().__init__(orientation='L', unit='mm', format='A4')
@@ -86,7 +86,7 @@ class ChatReportPDF(FPDF):
             self.set_text_color(50, 50, 50)
             self.cell(0, 10, 'CHATSTAT INTELLIGENCE REPORT - PRO VERSION', 0, 1, 'R')
 
-    def draw_vector_chart(self, labels, values, title, desc):
+    def draw_vector_chart(self, labels, values, title, desc, suffix=""):
         if not labels or not values: return
         self.add_page()
         self.ln(10)
@@ -116,55 +116,57 @@ class ChatReportPDF(FPDF):
             
             self.set_x(start_x + bar_w + 3)
             self.set_text_color(255, 255, 255)
-            self.cell(20, row_h, f"{val:,.0f}", 0, 1, 'L')
+            self.cell(40, row_h, f"{val:,.1f} {suffix}", 0, 1, 'L')
             self.ln(2)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
     
-    # PORTADA PDF (Idéntica a la nueva Web)
+    # PORTADA
     pdf.add_page()
     pdf.ln(50)
     pdf.set_font('helvetica', 'BI', 80)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 35, 'RADIOGRAFÍA', 0, 1, 'C')
-    
     pdf.set_font('helvetica', 'B', 45)
     pdf.set_text_color(16, 185, 129)
     pdf.cell(0, 25, 'DE TU AMISTAD.', 0, 1, 'C')
-    
     pdf.ln(20)
     pdf.set_font('helvetica', '', 14)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 10, f"ESTUDIO BASADO EN {len(df):,} MENSAJES", 0, 1, 'C')
 
-    # Métricas
+    # 1. Velocidad de Respuesta (NUEVA MÉTRICA)
+    resp_df = df.dropna(subset=['response_time_min'])
+    if not resp_df.empty:
+        avg_resp = resp_df.groupby('sender')['response_time_min'].mean().sort_values(ascending=False).reset_index()
+        pdf.draw_vector_chart(avg_resp['sender'].tolist(), avg_resp['response_time_min'].tolist(), 
+                             "Velocidad de Reacción", 
+                             "Tiempo promedio en minutos que cada integrante tarda en responder a un mensaje directo de otro usuario.",
+                             suffix="min")
+
+    # 2. Ranking General
     counts = df['sender'].value_counts().reset_index()
     pdf.draw_vector_chart(counts['sender'].tolist(), counts['count'].tolist(), "Ranking de Actividad", "Volumen total de mensajes por integrante.")
 
+    # 3. Noctámbulos
     noct = df[df['is_noctambulo']]['sender'].value_counts().reset_index()
     pdf.draw_vector_chart(noct['sender'].tolist(), noct['count'].tolist(), "Club Noctámbulo", "Actividad entre 00:00 y 05:59 hs.")
 
     return bytes(pdf.output())
 
-# --- INTERFAZ STREAMLIT ---
+# --- UI ---
 def main():
-    # El título ahora tiene el tamaño XL que pediste
     st.markdown('<p class="hero-title">RADIOGRAFÍA <br><span class="emerald-text">DE TU AMISTAD.</span></p>', unsafe_allow_html=True)
-    
     uploaded_file = st.file_uploader("", type=["txt"])
     
     if uploaded_file:
         df = parse_chat(uploaded_file.getvalue())
         if not df.empty:
-            st.success(f"Análisis completo: {len(df)} registros.")
+            st.success(f"Análisis completo: {len(df)} mensajes procesados.")
             pdf_bytes = create_pdf_report(df)
-            st.download_button(
-                label="⬇️ DESCARGAR REPORTE FINAL",
-                data=pdf_bytes,
-                file_name=f"Radiografia_{datetime.now().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf"
-            )
+            st.download_button(label="⬇️ DESCARGAR REPORTE FINAL", data=pdf_bytes, 
+                             file_name=f"Reporte_ChatStat.pdf", mime="application/pdf")
 
 if __name__ == "__main__":
     main()
