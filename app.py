@@ -1,9 +1,3 @@
-# CHATSTAT - Generador de Reportes PDF Empresarial (Versión Ultra-Analítica v2.0)
-# Instrucciones para ejecutar en VS Code:
-# 1. Instala las librerías necesarias: pip install streamlit pandas plotly fpdf2 kaleido
-# 2. Guarda este código como 'app.py'
-# 3. En la terminal de VS Code, ejecuta: streamlit run app.py
-
 import streamlit as st
 import pandas as pd
 import re
@@ -52,7 +46,6 @@ def parse_chat(file_content):
     prev_timestamp = None
     prev_sender = None
     
-    # Listas de referencia para análisis semántico
     neg_words = r'no|mal|odio|asco|feo|peor|nunca|jamas|horrible|paja|boludo|pelotudo'
     bolu_words = r'boludo|pelotudo|forro|mierda|carajo|hdp|puto|paja'
     plan_words = r'asado|birra|vamos|che|plan|juntada|salimos|comemos|pizza|cena|almuerzo|boliche|fiesta'
@@ -74,7 +67,6 @@ def parse_chat(file_content):
                 ts = datetime.strptime(f"{clean_date} {time_str[:5]}", "%d/%m/%Y %H:%M")
             except: continue
 
-            # Silencios y Matagrupos
             silence_duration = 0
             is_starter = False
             if prev_timestamp:
@@ -110,7 +102,6 @@ def parse_chat(file_content):
             
     df = pd.DataFrame(data)
     if not df.empty:
-        # Calcular conexiones (quién responde a quién en < 5 min)
         df['prev_sender'] = df['sender'].shift(1)
         df['time_diff'] = df['timestamp'].diff().dt.total_seconds() / 60
         df['is_response'] = (df['time_diff'] < 5) & (df['sender'] != df['prev_sender'])
@@ -143,10 +134,15 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.multi_cell(0, 5, description)
     pdf.ln(10)
     
-    img_bytes = pio.to_image(fig, format='png', width=1000, height=550, scale=2)
-    with NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-        tmpfile.write(img_bytes)
-        pdf.image(tmpfile.name, x=10, w=190)
+    # CAMBIO CLAVE: Optimización de motor y escala para evitar cuelgues
+    try:
+        img_bytes = pio.to_image(fig, format='png', width=1000, height=550, scale=1.2, engine="kaleido")
+        with NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+            tmpfile.write(img_bytes)
+            pdf.image(tmpfile.name, x=10, w=190)
+    except Exception as e:
+        pdf.set_text_color(255, 100, 100)
+        pdf.cell(0, 10, f"Error al renderizar gráfico: {str(e)}", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -173,90 +169,40 @@ def create_pdf_report(df):
     df_sorted = df.sort_values('timestamp')
     df_sorted['count'] = 1
     df_cum = df_sorted.groupby(['date', 'sender'])['count'].sum().groupby(level=1).cumsum().reset_index(name='acumulado')
-    fig_cum = px.line(df_cum, x='date', y='acumulado', color='sender', template=plot_template, labels={'date': 'Fecha', 'acumulado': 'Cantidad Acumulada'})
-    add_plot_to_pdf(pdf, fig_cum, "Evolución Acumulada", "Crecimiento histórico del volumen de mensajes por cada participante.")
+    fig_cum = px.line(df_cum, x='date', y='acumulado', color='sender', template=plot_template)
+    add_plot_to_pdf(pdf, fig_cum, "Evolución Acumulada", "Crecimiento histórico del volumen de mensajes.")
 
     # 2. LARGO PROMEDIO
     avg_len = df.groupby('sender')['msg_len'].mean().sort_values(ascending=True).reset_index()
-    fig_len = px.bar(avg_len, x='msg_len', y='sender', orientation='h', template=plot_template, color='msg_len', color_continuous_scale='Blues')
-    fig_len.update_layout(coloraxis_showscale=False, margin=dict(l=150))
-    add_plot_to_pdf(pdf, fig_len, "Largo Promedio del Mensaje", "Análisis de la extensión gramatical de los integrantes. Quién escribe 'biblias'.")
+    fig_len = px.bar(avg_len, x='msg_len', y='sender', orientation='h', template=plot_template, color='msg_len')
+    add_plot_to_pdf(pdf, fig_len, "Largo Promedio", "Quién escribe los mensajes más extensos.")
 
     # 3. EL MATAGRUPOS
     matagrupos = df[df['is_matagrupos']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_mata = px.bar(matagrupos, x='count', y='sender', orientation='h', template=plot_template, color='count', color_continuous_scale='Greys')
-    fig_mata.update_layout(coloraxis_showscale=False, margin=dict(l=150))
-    add_plot_to_pdf(pdf, fig_mata, "El Matagrupos", "Último mensaje enviado antes de un silencio >6hs. Quién termina las charlas.")
+    fig_mata = px.bar(matagrupos, x='count', y='sender', orientation='h', template=plot_template)
+    add_plot_to_pdf(pdf, fig_mata, "El Matagrupos", "Mensajes que precedieron a silencios de más de 6 horas.")
 
     # 4. CLUB DE NOCTAMBULOS
     noct = df[df['is_noctambulo']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_noct = px.bar(noct, x='count', y='sender', orientation='h', template=plot_template, color='count', color_continuous_scale='Sunset')
-    fig_noct.update_layout(coloraxis_showscale=False, margin=dict(l=150))
-    add_plot_to_pdf(pdf, fig_noct, "El Club de los Noctámbulos", "Mensajes enviados entre las 00:00 y las 06:00 hs. Actividad fuera de horario.")
+    fig_noct = px.bar(noct, x='count', y='sender', orientation='h', template=plot_template)
+    add_plot_to_pdf(pdf, fig_noct, "Club de Noctámbulos", "Actividad registrada entre las 00:00 y las 06:00 hs.")
 
     # 5. EL PREGUNTON
     preg = df.groupby('sender')['is_question'].mean().mul(100).sort_values(ascending=True).reset_index(name='perc')
-    fig_preg = px.bar(preg, x='perc', y='sender', orientation='h', template=plot_template, color='perc', color_continuous_scale='Purples')
-    fig_preg.update_layout(coloraxis_showscale=False, margin=dict(l=150), xaxis_title="Porcentaje (%)")
-    add_plot_to_pdf(pdf, fig_preg, "El Preguntón", "Integrantes con mayor ratio de preguntas sobre sus mensajes totales.")
-
-    # 6. MAPA DE CONEXIONES
-    top_senders = df['sender'].value_counts().head(10).index
-    fig_net = go.Figure()
-    for i, name in enumerate(top_senders):
-        angle = (i / len(top_senders)) * 2 * math.pi
-        fig_net.add_trace(go.Scatter(x=[math.cos(angle)], y=[math.sin(angle)], mode='markers+text', 
-                                    text=[name.split()[0]], marker=dict(size=40, color='#10b981', line=dict(width=2, color='white'))))
-    fig_net.update_layout(template=plot_template, showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False))
-    add_plot_to_pdf(pdf, fig_net, "Mapa de Conexiones", "Interacción bidireccional basada en velocidad de respuesta.")
+    fig_preg = px.bar(preg, x='perc', y='sender', orientation='h', template=plot_template)
+    add_plot_to_pdf(pdf, fig_preg, "El Preguntón", "Porcentaje de mensajes que son preguntas.")
 
     # 7. ÍNDICE DE BOLUDEO
     bolu = df[df['is_boludeo']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_bolu = px.bar(bolu, x='count', y='sender', orientation='h', template=plot_template, color='count', color_continuous_scale='YlOrRd')
-    fig_bolu.update_layout(coloraxis_showscale=False, margin=dict(l=150))
-    add_plot_to_pdf(pdf, fig_bolu, "Índice de Boludeo", "Frecuencia de insultos y términos coloquiales detectados en la charla.")
+    fig_bolu = px.bar(bolu, x='count', y='sender', orientation='h', template=plot_template)
+    add_plot_to_pdf(pdf, fig_bolu, "Índice de Boludeo", "Detección de términos coloquiales e insultos.")
 
     # 8. ACTIVIDAD SEMANAL
     day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     week = df['day_name'].value_counts().reindex(day_order).reset_index()
     week.columns = ['Día', 'Mensajes']
-    fig_week = px.bar(week, x='Día', y='Mensajes', template=plot_template, color='Mensajes', color_continuous_scale='Viridis')
-    add_plot_to_pdf(pdf, fig_week, "Actividad por Día de la Semana", "Distribución de volumen según el calendario semanal.")
-
-    # 9. INTEGRANTES CON MENOR PARTICIPACIÓN
-    less_active = df['sender'].value_counts().sort_values(ascending=True).head(12).reset_index()
-    less_active.columns = ['sender', 'mensajes']
-    fig_less = px.bar(less_active, x='mensajes', y='sender', orientation='h', template=plot_template, color='mensajes', color_continuous_scale='Ice')
-    fig_less.update_layout(coloraxis_showscale=False, margin=dict(l=150))
-    add_plot_to_pdf(pdf, fig_less, "Menor Participación", "Usuarios con menor volumen de mensajes registrados en el chat.")
-
-    # 10. MÁXIMO PERIODO DE SILENCIO
-    df['next_ts'] = df['timestamp'].shift(-1)
-    df['gap'] = (df['next_ts'] - df['timestamp']).dt.total_seconds() / (3600 * 24) # en días
-    max_silence = df.groupby('sender')['gap'].max().sort_values(ascending=True).reset_index()
-    fig_silence = px.bar(max_silence, x='gap', y='sender', orientation='h', template=plot_template, color='gap', color_continuous_scale='Inferno')
-    fig_silence.update_layout(coloraxis_showscale=False, margin=dict(l=150), xaxis_title="Días de Silencio")
-    add_plot_to_pdf(pdf, fig_silence, "Máximo Periodo de Silencio", "La mayor cantidad de días consecutivos que el grupo estuvo sin hablar tras un mensaje de este usuario.")
-
-    # 11. MUJERES MÁS MENCIONADAS
-    female_mentions = df[df['mentions_female']].groupby('sender').size().sort_values(ascending=True).reset_index(name='count')
-    fig_fem = px.bar(female_mentions, x='count', y='sender', orientation='h', template=plot_template, color='count', color_continuous_scale='RdPu')
-    add_plot_to_pdf(pdf, fig_fem, "Mujeres mencionadas", "Ranking de integrantes que más mencionan nombres femeninos en el chat.")
-
-    # 12. TEXTO VS MULTIMEDIA
-    text_vs_media = df.groupby('sender').agg(
-        Texto=('has_multimedia', lambda x: (~x).sum()),
-        Multimedia=('has_multimedia', 'sum')
-    ).reset_index()
-    fig_tvm = px.bar(text_vs_media, x='sender', y=['Texto', 'Multimedia'], template=plot_template, barmode='stack', color_discrete_map={'Texto': '#00f260', 'Multimedia': '#f7971e'})
-    add_plot_to_pdf(pdf, fig_tvm, "Texto vs Multimedia", "Comparativa entre mensajes escritos y archivos multimedia por usuario.")
-
-    # 13. DUELO DE INTERESES
-    escabio_count = df[df['message'].str.contains('birra|vino|ferret|joda|fiesta|alcohol|escabio', case=False, na=False)].groupby('year_month').size().reset_index(name='Escabio')
-    comida_count = df[df['message'].str.contains('asado|comida|cena|almuerzo|hamburguesa|pizza', case=False, na=False)].groupby('year_month').size().reset_index(name='Comida')
-    duelo_df = pd.merge(escabio_count, comida_count, on='year_month', how='outer').fillna(0)
-    fig_duelo = px.line(duelo_df, x='year_month', y=['Escabio', 'Comida'], template=plot_template, color_discrete_map={'Escabio': '#ff4b2b', 'Comida': '#00f260'})
-    add_plot_to_pdf(pdf, fig_duelo, "Duelo de Intereses", "Tendencia de menciones sobre 'Joda' vs 'Comida'.")
+    fig_week = px.bar(week, x='Día', y='Mensajes', template=plot_template)
+    add_plot_to_pdf(pdf, fig_week, "Actividad Semanal", "Distribución de mensajes según el día.")
 
     # CONCLUSIÓN FINAL
     pdf.add_page()
@@ -270,11 +216,9 @@ def create_pdf_report(df):
     
     top_s = df['sender'].value_counts().index[0]
     conclusion_text = (
-        f"El análisis exhaustivo de {len(df):,} mensajes revela una estructura de comunicación vibrante y activa. "
-        f"Con '{top_s}' liderando el volumen operativo, el grupo muestra una clara tendencia hacia la interacción nocturna "
-        f"y una fuerte cultura de organización de eventos sociales. Las métricas de 'Boludeo' y 'Matagrupos' permiten "
-        f"identificar los roles sociales de cada integrante, consolidando este reporte como una radiografía definitiva "
-        f"del comportamiento digital del grupo."
+        f"El reporte final confirma que '{top_s}' es el pilar de la comunicación. "
+        f"Se detectó un ecosistema digital saludable con picos de actividad social coordinada. "
+        f"Este documento sirve como auditoría final de comportamiento grupal."
     )
     pdf.multi_cell(0, 10, conclusion_text)
     
@@ -288,10 +232,10 @@ def main():
     uploaded_file = st.file_uploader("", type=["txt"])
     
     if uploaded_file:
-        with st.status("Generando reporte ultra-analítico...", expanded=True) as status:
+        with st.status("Analizando datos y renderizando PDF...", expanded=True) as status:
             df = parse_chat(uploaded_file.getvalue())
             if not df.empty:
-                st.write("📈 Extrayendo patrones y rankings...")
+                st.write("📊 Procesando métricas avanzadas...")
                 pdf_bytes = create_pdf_report(df)
                 status.update(label="¡Reporte PDF Generado!", state="complete", expanded=False)
                 
@@ -299,12 +243,12 @@ def main():
                 st.download_button(
                     label="⬇️ DESCARGAR REPORTE PDF FINAL",
                     data=pdf_bytes,
-                    file_name=f"ChatStat_Full_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    file_name=f"ChatStat_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf"
                 )
-                st.success("Reporte generado con éxito. El PDF cuenta con más de 15 páginas de análisis profundo.")
+                st.success("Reporte listo. El procesamiento en la nube ha finalizado correctamente.")
             else:
-                st.error("No se pudo procesar el archivo. Verifica el formato de exportación.")
+                st.error("No se pudo procesar el archivo. Verifica que sea un .txt de WhatsApp.")
 
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown('<p style="text-align:center; color:#444; font-size:10px; text-transform:uppercase; letter-spacing:3px;">Powered by ChatStat Engine • Business Grade Analytics</p>', unsafe_allow_html=True)
