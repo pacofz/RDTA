@@ -134,18 +134,10 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.multi_cell(0, 5, description)
     pdf.ln(5)
     
-    try:
-        # REDUCIMOS resolución para que el servidor no sufra
-        # Bajamos width y height, y usamos scale=1
-        img_bytes = fig.to_image(format='png', width=700, height=400, scale=1, engine="kaleido")
-        
-        with NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-            tmpfile.write(img_bytes)
-            # Ajustamos el ancho en el PDF para que ocupe el lugar correcto
-            pdf.image(tmpfile.name, x=20, w=170) 
-    except Exception as e:
-        pdf.set_font('helvetica', 'I', 8)
-        pdf.cell(0, 10, f"Nota: Gráfico omitido por límite de memoria técnica.", 0, 1)
+    # OPCIÓN SEGURA: Mostramos el gráfico en la web pero no lo metemos al PDF
+    # Esto evita que el servidor se cuelgue intentando 'renderizar' la imagen
+    pdf.set_font('helvetica', 'I', 8)
+    pdf.cell(0, 10, "(Grafico disponible en el panel interactivo de la web)", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -258,6 +250,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
