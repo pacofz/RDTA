@@ -193,7 +193,7 @@ def create_pdf_report(df):
     pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 20, 'DE TU AMISTAD', 0, 1, 'C')
     pdf.ln(20)
-    pdf.set_font('helvetica', '', 12)
+    pdf.set_font('helvetica', '', 20)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 10, f'Periodo: {df["timestamp"].min().strftime("%Y")} - {df["timestamp"].max().strftime("%Y")}', 0, 1, 'C')
     pdf.cell(0, 10, f'Registros: {len(df):,}', 0, 1, 'C')
@@ -290,6 +290,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
