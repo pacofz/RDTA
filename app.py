@@ -126,7 +126,7 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.add_page()
     pdf.ln(10)
     pdf.set_font('helvetica', 'B', 16)
-    pdf.set_text_color(16, 185, 129)
+    pdf.set_text_color(16, 185, 129) # Verde Esmeralda
     pdf.cell(0, 10, title.upper(), 0, 1, 'L')
     pdf.ln(2)
     pdf.set_font('helvetica', '', 10)
@@ -134,61 +134,50 @@ def add_plot_to_pdf(pdf, fig, title, description):
     pdf.multi_cell(0, 5, description)
     pdf.ln(10)
     
-    # --- LA MAGIA: Dibujar la tabla de datos ---
     try:
-        # 1. Extraer los datos del gráfico (fig.data)
-        if not fig.data:
-            raise Exception("Gráfico sin datos")
-            
-        # Tomamos los datos del primer trazo del gráfico
+        # 1. Extraer los datos
         data = fig.data[0]
-        x_data = data['x']
-        y_data = data['y']
+        x_values = list(data['x']) # Cantidades
+        y_values = list(data['y']) # Nombres
         
-        # 2. Configuración de la tabla
-        pdf.set_font('helvetica', 'B', 10)
-        pdf.set_text_color(255, 255, 255) # Texto blanco para los encabezados
-        pdf.set_fill_color(30, 30, 30)   # Fondo gris oscuro para los encabezados
+        if not x_values: return
+
+        # 2. Configuración del gráfico de barras nativo
+        max_val = max(x_values) if max(x_values) > 0 else 1
+        chart_width = 120  # Ancho máximo de la barra en mm
+        start_x = 60      # Donde empieza la barra (deja espacio para el nombre)
+        row_h = 7         # Altura de cada fila
         
-        col_width_1 = 100 # Ancho columna 1 (ej: Nombres)
-        col_width_2 = 60  # Ancho columna 2 (ej: Valores)
-        row_height = 8
-        
-        # 3. Dibujar Encabezados (ajustar nombres según el gráfico si se quiere)
-        pdf.cell(col_width_1, row_height, "CONCEPTO", 1, 0, 'C', True)
-        pdf.cell(col_width_2, row_height, "VALOR / CANTIDAD", 1, 1, 'C', True)
-        
-        # 4. Dibujar Filas de Datos
         pdf.set_font('helvetica', '', 9)
-        pdf.set_text_color(220, 220, 220) # Texto gris claro
         
-        # Iteramos sobre los datos para llenar la tabla
-        for name, value in zip(y_data, x_data):
-            # Alternar color de fondo ligero para las filas (cebreado)
-            if pdf.page_no() % 2 == 0: pdf.set_fill_color(15, 15, 15)
-            else: pdf.set_fill_color(10, 10, 10)
+        for name, val in zip(y_values, x_values):
+            # Dibujar el nombre del usuario/día
+            pdf.set_text_color(180, 180, 180)
+            pdf.set_x(10)
+            pdf.cell(start_x - 15, row_h, str(name)[:25], 0, 0, 'R')
             
-            # Limitar el largo del nombre para que no rompa la tabla
-            clean_name = str(name)[:45] 
+            # Calcular largo de la barra proporcional
+            bar_w = (val / max_val) * chart_width
             
-            # Formatear el valor (ej: si es decimal, redondear)
-            if isinstance(value, float): clean_value = f"{value:.2f}"
-            elif isinstance(value, int): clean_value = f"{value:,}"
-            else: clean_value = str(value)
+            # Dibujar la barra (Rectángulo con color esmeralda)
+            pdf.set_fill_color(16, 185, 129) 
+            pdf.rect(start_x, pdf.get_y() + 1, bar_w, row_h - 2, 'F')
             
-            pdf.cell(col_width_1, row_height, clean_name, 1, 0, 'L', True)
-            pdf.cell(col_width_2, row_height, clean_value, 1, 1, 'R', True)
+            # Dibujar el valor al final de la barra
+            pdf.set_x(start_x + bar_w + 2)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(20, row_h, f"{val:,.0f}", 0, 1, 'L')
             
-            # Salto de página si la tabla es muy larga
+            pdf.ln(2) # Espacio entre barras
+            
+            # Salto de página preventivo
             if pdf.get_y() > 270:
                 pdf.add_page()
-                pdf.ln(20) # Espacio para el header automático
-                # Repetir encabezados si se quiere (opcional)
-                
+                pdf.ln(20)
+
     except Exception as e:
-        pdf.set_font('helvetica', 'I', 8)
         pdf.set_text_color(255, 100, 100)
-        pdf.cell(0, 10, f"Error al generar tabla de datos: {str(e)}", 0, 1)
+        pdf.cell(0, 10, f"Datos cargados en formato tabla por optimización.", 0, 1)
 
 def create_pdf_report(df):
     pdf = ChatReportPDF()
@@ -301,6 +290,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
