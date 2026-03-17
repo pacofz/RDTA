@@ -8,7 +8,7 @@ import io
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="CHATSTAT PRO", page_icon="📄", layout="centered")
 
-# --- ESTILOS CSS (Estética XL e Impactante) ---
+# --- ESTILOS CSS (Estética XL e Impactante) --- # --- ESTILOS CSS (Estética XL e Impactante) ---
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #f4f4f5; }
